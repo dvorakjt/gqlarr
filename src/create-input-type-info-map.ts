@@ -10,6 +10,7 @@ export type InputTypeInfoMap = Record<string, InputObjectInfo | EnumInfo>;
 
 export interface InputObjectInfo {
   fields: InputObjectFieldInfoMap;
+  isOneOfDirectiveApplied: boolean;
 }
 
 export type InputObjectFieldInfoMap = Record<string, InputObjectFieldInfo>;
@@ -49,6 +50,12 @@ export function createInputTypeInfoMap(
     } else {
       const inputObjectInfo = {
         fields: createInputObjectFieldInfoMap(type.astNode, typeMappings),
+        isOneOfDirectiveApplied: !!(
+          type.astNode.directives &&
+          type.astNode.directives.find(
+            (directive) => directive.name.value === "oneOf",
+          )
+        ),
       };
 
       output[typeName] = inputObjectInfo;

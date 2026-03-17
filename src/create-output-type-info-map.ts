@@ -78,9 +78,8 @@ function getTypeInfo(
 function createFieldInfoMap(
   fields: readonly FieldDefinitionNode[],
 ): Record<string, FieldInfo> {
-  return fields
-    .map((field) => getFieldInfo(field))
-    .reduce((fieldInfoMap, fieldInfo) => {
+  return withTypenameField(fields.map((field) => getFieldInfo(field))).reduce(
+    (fieldInfoMap, fieldInfo) => {
       return {
         ...fieldInfoMap,
         [fieldInfo.name]: {
@@ -88,7 +87,9 @@ function createFieldInfoMap(
           arguments: fieldInfo.arguments,
         },
       };
-    }, {});
+    },
+    {},
+  );
 }
 
 function getFieldInfo(
@@ -159,7 +160,15 @@ function getBaseType(type: TypeNode): string {
   return type.name.value;
 }
 
-// get the output types
-// get the operation types
-// map it all to objects
-// use these objects to create type definitions
+function withTypenameField(
+  fields: ({ name: string } & FieldInfo)[],
+): ({ name: string } & FieldInfo)[] {
+  return [
+    ...fields,
+    {
+      name: "__typename",
+      type: "String",
+      arguments: {},
+    },
+  ];
+}

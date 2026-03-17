@@ -63,7 +63,7 @@ function createQueryTreeNodeArgumentInfoMap(
 }
 
 function createFieldsTypeName(graphqlTypeName: string) {
-  return graphqlTypeName + "__Fields";
+  return graphqlTypeName + "Fields";
 }
 
 function getFields(

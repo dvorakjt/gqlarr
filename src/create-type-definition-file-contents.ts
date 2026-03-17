@@ -84,7 +84,9 @@ function createFlattenType() {
 }
 
 function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
-  const typeDefinitions: Array<InterfaceDeclaration | EnumDeclaration> = [];
+  const typeDefinitions: Array<
+    InterfaceDeclaration | EnumDeclaration | TypeAliasDeclaration
+  > = [];
 
   for (const typeName in inputTypeInfoMap) {
     const typeInfo = inputTypeInfoMap[typeName];
@@ -102,7 +104,7 @@ function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
       );
 
       typeDefinitions.push(enumDeclaration);
-    } else {
+    } else if (!typeInfo.isOneOfDirectiveApplied) {
       const members: PropertySignature[] = [];
 
       for (const fieldName in typeInfo.fields) {
@@ -130,6 +132,53 @@ function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
         );
 
       typeDefinitions.push(inputObjectInterfaceDeclaration);
+    } else {
+      const members: TypeNode[] = [];
+
+      for (const fieldName in typeInfo.fields) {
+        const fieldInfo = typeInfo.fields[fieldName];
+        const properties: PropertySignature[] = [];
+
+        // create the property signature for the field in question
+        properties.push(
+          ts.factory.createPropertySignature(
+            undefined,
+            ts.factory.createIdentifier(fieldName),
+            fieldInfo.isNullable
+              ? ts.factory.createToken(SyntaxKind.QuestionToken)
+              : undefined,
+            toTsType(fieldInfo),
+          ),
+        );
+
+        // add optional properities whose value must be undefined for the rest
+        // of the fields
+        for (const otherFieldName in typeInfo.fields) {
+          if (otherFieldName === fieldName) continue;
+
+          properties.push(
+            ts.factory.createPropertySignature(
+              undefined,
+              ts.factory.createIdentifier(otherFieldName),
+              ts.factory.createToken(SyntaxKind.QuestionToken),
+              ts.factory.createKeywordTypeNode(SyntaxKind.UndefinedKeyword),
+            ),
+          );
+        }
+
+        const singleFieldObjectType =
+          ts.factory.createTypeLiteralNode(properties);
+        members.push(singleFieldObjectType);
+      }
+
+      const singleFieldObjectTypeUnion = ts.factory.createTypeAliasDeclaration(
+        [],
+        ts.factory.createIdentifier(typeName),
+        undefined,
+        ts.factory.createUnionTypeNode(members),
+      );
+
+      typeDefinitions.push(singleFieldObjectTypeUnion);
     }
   }
 
