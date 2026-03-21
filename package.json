@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@prettier/sync": "^0.6.1",
     "graphql": "^16.13.1",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"

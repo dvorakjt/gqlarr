@@ -4,6 +4,7 @@ import {
   type GraphQLNamedType,
   type InputObjectTypeDefinitionNode,
   InputValueDefinitionNode,
+  GraphQLInputObjectType,
 } from "graphql";
 
 export type InputTypeInfoMap = Record<string, InputObjectInfo | EnumInfo>;
@@ -49,7 +50,11 @@ export function createInputTypeInfoMap(
       };
     } else {
       const inputObjectInfo = {
-        fields: createInputObjectFieldInfoMap(type.astNode, typeMappings),
+        fields: createInputObjectFieldInfoMap(
+          type.astNode,
+          typeMappings,
+          typeMap,
+        ),
         isOneOfDirectiveApplied: !!(
           type.astNode.directives &&
           type.astNode.directives.find(
@@ -68,11 +73,12 @@ export function createInputTypeInfoMap(
 function createInputObjectFieldInfoMap(
   type: InputObjectTypeDefinitionNode,
   typeMappings: Record<string, string>,
+  typeMap: Record<string, GraphQLNamedType>,
 ): Record<string, InputObjectFieldInfo> {
   if (!type.fields) return {};
 
   return type.fields
-    .map((field) => getInputObjectFieldInfo(field, typeMappings))
+    .map((field) => getInputObjectFieldInfo(field, typeMappings, typeMap))
     .reduce((inputObjectFieldInfoMap, fieldInfo) => {
       return {
         ...inputObjectFieldInfoMap,
@@ -89,6 +95,7 @@ function createInputObjectFieldInfoMap(
 function getInputObjectFieldInfo(
   field: InputValueDefinitionNode,
   typeMappings: Record<string, string>,
+  typeMap: Record<string, GraphQLNamedType>,
 ): { name: string } & InputObjectFieldInfo {
   let graphqlType = field.type;
   let isNullable = true;
@@ -115,7 +122,9 @@ function getInputObjectFieldInfo(
   const tsType =
     graphqlTypeName in typeMappings
       ? typeMappings[graphqlTypeName]
-      : graphqlTypeName;
+      : isInputObjectType(graphqlTypeName, typeMap)
+        ? graphqlTypeName
+        : "any";
 
   return {
     name: field.name.value,
@@ -124,4 +133,11 @@ function getInputObjectFieldInfo(
     isArray,
     areElementsNullable,
   };
+}
+
+function isInputObjectType(
+  typeName: string,
+  typeMap: Record<string, GraphQLNamedType>,
+) {
+  return typeMap[typeName] instanceof GraphQLInputObjectType;
 }

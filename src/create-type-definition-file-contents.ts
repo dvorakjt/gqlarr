@@ -8,6 +8,7 @@ import ts, {
   TypeAliasDeclaration,
   TypeNode,
 } from "typescript";
+import synchronizedPrettier from "@prettier/sync";
 import type { InputTypeInfoMap } from "./create-input-type-info-map";
 import type { QueryTreeNodeTypeInfoMap } from "./create-query-tree-node-type-info-map";
 
@@ -21,9 +22,9 @@ export function createTypeDefinitionFileContents(
     createFlattenType(),
     ...createInputTypeDefinitions(inputTypeInfoMap),
     ...createQueryTreeTypeDefinitions(queryTreeNodeTypeInfoMap),
-  ];
+  ].filter((statement) => !!statement);
 
-  return statements.join("\n\n");
+  return formatOutput(statements.join("\n"));
 }
 
 function createImportStatements(imports: Record<string, string[]>) {
@@ -56,7 +57,7 @@ function createImportStatements(imports: Record<string, string[]>) {
 
 function createFlattenType() {
   const declaration = ts.factory.createTypeAliasDeclaration(
-    undefined,
+    [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
     "Flatten",
     [
       ts.factory.createTypeParameterDeclaration(
@@ -93,7 +94,7 @@ function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
 
     if ("members" in typeInfo) {
       const enumDeclaration = ts.factory.createEnumDeclaration(
-        undefined,
+        [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
         ts.factory.createIdentifier(typeName),
         typeInfo.members.map((member) =>
           ts.factory.createEnumMember(
@@ -124,7 +125,7 @@ function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
 
       const inputObjectInterfaceDeclaration =
         ts.factory.createInterfaceDeclaration(
-          undefined,
+          [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
           ts.factory.createIdentifier(typeName),
           undefined,
           undefined,
@@ -151,7 +152,7 @@ function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
           ),
         );
 
-        // add optional properities whose value must be undefined for the rest
+        // add optional properities whose value must be never for the rest
         // of the fields
         for (const otherFieldName in typeInfo.fields) {
           if (otherFieldName === fieldName) continue;
@@ -161,7 +162,7 @@ function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
               undefined,
               ts.factory.createIdentifier(otherFieldName),
               ts.factory.createToken(SyntaxKind.QuestionToken),
-              ts.factory.createKeywordTypeNode(SyntaxKind.UndefinedKeyword),
+              ts.factory.createKeywordTypeNode(SyntaxKind.NeverKeyword),
             ),
           );
         }
@@ -172,7 +173,7 @@ function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
       }
 
       const singleFieldObjectTypeUnion = ts.factory.createTypeAliasDeclaration(
-        [],
+        [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
         ts.factory.createIdentifier(typeName),
         undefined,
         ts.factory.createUnionTypeNode(members),
@@ -266,7 +267,7 @@ function createQueryTreeTypeDefinitions(
     }
 
     const typeDeclaration = ts.factory.createTypeAliasDeclaration(
-      undefined,
+      [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
       ts.factory.createIdentifier(typeName),
       undefined,
       type,
@@ -309,4 +310,15 @@ function toTsType(typeInfo: {
   }
 
   return type;
+}
+
+function formatOutput(output: string) {
+  return synchronizedPrettier
+    .format(output, {
+      parser: "typescript",
+      printWidth: 80,
+      tsDoc: true,
+      jsdocPreferCodeFences: true,
+    })
+    .trim();
 }

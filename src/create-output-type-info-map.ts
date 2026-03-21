@@ -36,6 +36,10 @@ export function createOutputTypeInfoMap(
   const outputTypeInfoMap: Record<string, OutputTypeInfo> = {};
 
   for (const key in typeMap) {
+    if (key.toLowerCase().includes("root")) {
+      console.log(JSON.stringify(typeMap[key].astNode, null, 2));
+    }
+
     const type = typeMap[key];
 
     if (
