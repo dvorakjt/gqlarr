@@ -1,0 +1,31 @@
+{
+  "name": "@gqlarr/extract",
+  "version": "0.0.0",
+  "description": "",
+  "keywords": [
+    "GraphQL",
+    "\"Almighty",
+    "Root",
+    "Resolver\"",
+    "TypeScript"
+  ],
+  "homepage": "https://github.com/dvorakjt/gqlarr#readme",
+  "bugs": {
+    "url": "https://github.com/dvorakjt/gqlarr/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dvorakjt/gqlarr.git"
+  },
+  "license": "MIT",
+  "author": "Joseph Dvorak",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npx tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
