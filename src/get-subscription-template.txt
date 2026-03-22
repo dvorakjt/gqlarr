@@ -1,9 +1,18 @@
-  getSubscription(info: GraphQLResolveInfo) {
-    const subscriptionNode = info.fieldNodes.find(
-      (node) => node.name.value === 'Subscription',
+  getSubscriptionField<T extends SubscriptionFields[number]['name']>(
+    info: GraphQLResolveInfo,
+    fieldName: T,
+  ): Extract<SubscriptionFields[number], { name: T }> | undefined {
+    const node = info.fieldNodes
+      .find(node => node.name.value === 'Subscription')
+      ?.selectionSet?.selections.find(
+        node => isFieldNodeWithName(node, fieldName),
+      );
+
+    if (!node) return undefined;
+
+    return extractField<Extract<SubscriptionFields[number], { name: T }>>(
+      node,
+      'Subscription',
+      info,
     );
-
-    if (!subscriptionNode) return [];
-
-    return extract<SubscriptionFields>(subscriptionNode, 'Subscription', info);
   }

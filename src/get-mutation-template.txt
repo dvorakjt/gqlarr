@@ -1,9 +1,18 @@
-  getMutation(info: GraphQLResolveInfo) {
-    const mutationNode = info.fieldNodes.find(
-      (node) => node.name.value === 'Mutation',
+  getMutationField<T extends MutationFields[number]['name']>(
+    info: GraphQLResolveInfo,
+    fieldName: T,
+  ): Extract<MutationFields[number], { name: T }> | undefined {
+    const node = info.fieldNodes
+      .find(node => node.name.value === 'Mutation')
+      ?.selectionSet?.selections.find(
+        node => isFieldNodeWithName(node, fieldName),
+      );
+
+    if (!node) return undefined;
+
+    return extractField<Extract<MutationFields[number], { name: T }>>(
+      node,
+      'Mutation',
+      info,
     );
-
-    if (!mutationNode) return [];
-
-    return extract<MutationFields>(mutationNode, 'MutationNode', info);
   }

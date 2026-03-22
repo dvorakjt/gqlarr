@@ -12,7 +12,6 @@ import ts, {
 import synchronizedPrettier from "@prettier/sync";
 import type { InputTypeInfoMap } from "./create-input-type-info-map";
 import type { QueryTreeNodeTypeInfoMap } from "./create-query-tree-node-type-info-map";
-import { GraphQLNamedType } from "graphql";
 import path from "path";
 
 export function createTypeDefinitionFileContents(
@@ -21,12 +20,13 @@ export function createTypeDefinitionFileContents(
   queryTreeNodeTypeInfoMap: QueryTreeNodeTypeInfoMap,
 ) {
   const statements: string[] = [
+    getHeaderTemplate(),
     createImportStatements(imports),
     createFlattenType(),
     ...createInputTypeDefinitions(inputTypeInfoMap),
     ...createQueryTreeTypeDefinitions(queryTreeNodeTypeInfoMap),
     createGqlarrObject(queryTreeNodeTypeInfoMap),
-    createExtractFunction(),
+    getFooterTemplate(),
   ].filter((statement) => !!statement);
 
   return formatOutput(statements.join("\n"));
@@ -315,11 +315,15 @@ function createGqlarrObject(
 
   if (!methods.length) return "export const gqlarr = {};";
 
-  return ["export const gqlarr = {", ...methods, "};"].join("\n");
+  return "export const gqlarr = {\n" + methods.join(",\n") + "\n};";
 }
 
-function createExtractFunction() {
-  return fs.readFileSync(path.join(__dirname, "extract-template.txt"), "utf-8");
+function getHeaderTemplate() {
+  return fs.readFileSync(path.join(__dirname, "header-template.txt"), "utf-8");
+}
+
+function getFooterTemplate() {
+  return fs.readFileSync(path.join(__dirname, "footer-template.txt"), "utf-8");
 }
 
 function print(statements: ts.Statement[]) {

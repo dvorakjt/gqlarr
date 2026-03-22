@@ -1,9 +1,18 @@
-  getQuery(info: GraphQLResolveInfo) {
-    const queryNode = info.fieldNodes.find(
-      (node) => node.name.value === 'Query',
+  getQueryField<T extends QueryFields[number]['name']>(
+    info: GraphQLResolveInfo,
+    fieldName: T,
+  ): Extract<QueryFields[number], { name: T }> | undefined {
+    const node = info.fieldNodes
+      .find(node => node.name.value === 'Query')
+      ?.selectionSet?.selections.find(
+        node => isFieldNodeWithName(node, fieldName),
+      );
+
+    if (!node) return undefined;
+
+    return extractField<Extract<QueryFields[number], { name: T }>>(
+      node,
+      'Query',
+      info,
     );
-
-    if (!queryNode) return [];
-
-    return extract<QueryFields>(queryNode, 'Query', info);
   }
