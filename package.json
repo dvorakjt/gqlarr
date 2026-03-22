@@ -1,0 +1,38 @@
+{
+  "name": "gqlarr",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npm tsc && npm run copy-templates",
+    "copy-templates": "copyfiles -u 1 \"src/*.txt\" dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dvorakjt/gqlarr.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/dvorakjt/gqlarr/issues"
+  },
+  "homepage": "https://github.com/dvorakjt/gqlarr#readme",
+  "dependencies": {
+    "@prettier/sync": "^0.6.1",
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@graphql-codegen/plugin-helpers": "^6.2.0",
+    "@graphql-tools/apollo-engine-loader": "^8.0.28",
+    "@types/node": "^25.5.0",
+    "copyfiles": "^2.4.1",
+    "graphql": "^16"
+  },
+  "peerDependencies": {
+    "graphql": ">=16"
+  }
+}

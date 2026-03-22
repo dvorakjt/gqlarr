@@ -1,0 +1,9 @@
+  getQuery(info: GraphQLResolveInfo) {
+    const queryNode = info.fieldNodes.find(
+      (node) => node.name.value === 'Query',
+    );
+
+    if (!queryNode) return [];
+
+    return extract<QueryFields>(queryNode, 'Query', info);
+  }

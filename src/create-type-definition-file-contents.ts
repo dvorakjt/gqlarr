@@ -1,3 +1,4 @@
+import fs from "fs";
 import ts, {
   EnumDeclaration,
   ImportDeclaration,
@@ -11,6 +12,8 @@ import ts, {
 import synchronizedPrettier from "@prettier/sync";
 import type { InputTypeInfoMap } from "./create-input-type-info-map";
 import type { QueryTreeNodeTypeInfoMap } from "./create-query-tree-node-type-info-map";
+import { GraphQLNamedType } from "graphql";
+import path from "path";
 
 export function createTypeDefinitionFileContents(
   imports: Record<string, string[]>,
@@ -22,6 +25,8 @@ export function createTypeDefinitionFileContents(
     createFlattenType(),
     ...createInputTypeDefinitions(inputTypeInfoMap),
     ...createQueryTreeTypeDefinitions(queryTreeNodeTypeInfoMap),
+    createGqlarrObject(queryTreeNodeTypeInfoMap),
+    createExtractFunction(),
   ].filter((statement) => !!statement);
 
   return formatOutput(statements.join("\n"));
@@ -277,6 +282,44 @@ function createQueryTreeTypeDefinitions(
   }
 
   return typeDeclarations.map((typeDec) => print([typeDec]));
+}
+
+function createGqlarrObject(
+  queryTreeNodeTypeInfoMap: QueryTreeNodeTypeInfoMap,
+) {
+  const methods: string[] = [];
+
+  if ("QueryFields" in queryTreeNodeTypeInfoMap) {
+    methods.push(
+      fs.readFileSync(path.join(__dirname, "get-query-template.txt"), "utf-8"),
+    );
+  }
+
+  if ("MutationFields" in queryTreeNodeTypeInfoMap) {
+    methods.push(
+      fs.readFileSync(
+        path.join(__dirname, "get-mutation-template.txt"),
+        "utf-8",
+      ),
+    );
+  }
+
+  if ("SubscriptionFields" in queryTreeNodeTypeInfoMap) {
+    methods.push(
+      fs.readFileSync(
+        path.join(__dirname, "get-subscription-template.txt"),
+        "utf-8",
+      ),
+    );
+  }
+
+  if (!methods.length) return "export const gqlarr = {};";
+
+  return ["export const gqlarr = {", ...methods, "};"].join("\n");
+}
+
+function createExtractFunction() {
+  return fs.readFileSync(path.join(__dirname, "extract-template.txt"), "utf-8");
 }
 
 function print(statements: ts.Statement[]) {

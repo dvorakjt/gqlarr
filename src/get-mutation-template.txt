@@ -1,0 +1,9 @@
+  getMutation(info: GraphQLResolveInfo) {
+    const mutationNode = info.fieldNodes.find(
+      (node) => node.name.value === 'Mutation',
+    );
+
+    if (!mutationNode) return [];
+
+    return extract<MutationFields>(mutationNode, 'MutationNode', info);
+  }

@@ -3,6 +3,7 @@ import { input } from "zod";
 
 import { configSchema } from "./config-schema";
 import { mergeTypeMappings } from "./merge-type-mappings";
+import { mergeImports } from "./merge-imports";
 import { createInputTypeInfoMap } from "./create-input-type-info-map";
 import { createOutputTypeInfoMap } from "./create-output-type-info-map";
 import { createInputTypeToTSTypeMapper } from "./create-input-type-to-ts-type-mapper";
@@ -40,8 +41,10 @@ export const plugin: PluginFunction<input<typeof configSchema>> = (
     inputTypeToTSTypeMapper,
   );
 
+  const imports = mergeImports(parsedConfig.imports);
+
   const typeDefinitionFileContents = createTypeDefinitionFileContents(
-    parsedConfig.imports,
+    imports,
     inputTypeInfoMap,
     queryTreeNodeTypeInfoMap,
   );

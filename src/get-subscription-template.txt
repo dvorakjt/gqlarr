@@ -1,0 +1,9 @@
+  getSubscription(info: GraphQLResolveInfo) {
+    const subscriptionNode = info.fieldNodes.find(
+      (node) => node.name.value === 'Subscription',
+    );
+
+    if (!subscriptionNode) return [];
+
+    return extract<SubscriptionFields>(subscriptionNode, 'Subscription', info);
+  }

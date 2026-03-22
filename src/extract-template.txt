@@ -1,11 +1,4 @@
-import {
-  GraphQLResolveInfo,
-  Kind,
-  SelectionNode,
-  valueFromASTUntyped,
-} from "graphql";
-
-export interface Field {
+interface Field {
   name: string;
   on: string;
   alias: string;
@@ -13,32 +6,26 @@ export interface Field {
   fields: Field[];
 }
 
-export function extract<T extends Field[]>(info: GraphQLResolveInfo) {
-  return info.fieldNodes.flatMap((fieldNode) =>
-    extractTree(fieldNode, "Root", info),
-  ) as T;
-}
-
-function extractTree(
+function extract<T extends Field[]>(
   node: SelectionNode,
   typeCondition: string,
   info: GraphQLResolveInfo,
-): Field[] {
+): T {
   if (node.kind === Kind.FRAGMENT_SPREAD) {
     const fragment = info.fragments[node.name.value];
     if (fragment) {
       return fragment.selectionSet.selections.flatMap((selectionNode) =>
-        extractTree(selectionNode, fragment.typeCondition.name.value, info),
-      );
-    } else return [];
+        extract(selectionNode, fragment.typeCondition.name.value, info),
+      ) as T;
+    } else return [] as unknown as T;
   } else if (node.kind === Kind.INLINE_FRAGMENT) {
     return node.selectionSet.selections.flatMap((selectionNode) =>
-      extractTree(
+      extract(
         selectionNode,
         node.typeCondition?.name.value ?? typeCondition,
         info,
       ),
-    );
+    ) as T;
   } else {
     return [
       {
@@ -53,9 +40,9 @@ function extractTree(
         ),
         fields:
           node.selectionSet?.selections.flatMap((selectionNode) =>
-            extractTree(selectionNode, node.name.value, info),
+            extract(selectionNode, node.name.value, info),
           ) ?? [],
       },
-    ];
+    ] as T;
   }
 }

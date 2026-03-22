@@ -33,7 +33,7 @@ export interface ArgumentInfo {
 export function createOutputTypeInfoMap(
   typeMap: Record<string, GraphQLNamedType>,
 ): Record<string, OutputTypeInfo> {
-  let outputTypeInfoMap: Record<string, OutputTypeInfo> = {};
+  const outputTypeInfoMap: Record<string, OutputTypeInfo> = {};
 
   for (const key in typeMap) {
     const type = typeMap[key];
@@ -49,8 +49,6 @@ export function createOutputTypeInfoMap(
 
     outputTypeInfoMap[type.name] = getTypeInfo(type.astNode);
   }
-
-  outputTypeInfoMap["Root"] = getRootType(typeMap);
 
   return outputTypeInfoMap;
 }
@@ -173,37 +171,4 @@ function withTypenameField(
       arguments: {},
     },
   ];
-}
-
-function getRootType(typeMap: Record<string, GraphQLNamedType>) {
-  const fields: Record<string, FieldInfo> = {};
-
-  if ("Query" in typeMap) {
-    fields["Query"] = {
-      type: "Query",
-      arguments: {},
-    };
-  }
-
-  if ("Mutation" in typeMap) {
-    fields["Mutation"] = {
-      type: "Mutation",
-      arguments: {},
-    };
-  }
-
-  if ("Subscription" in typeMap) {
-    fields["Subscription"] = {
-      type: "Subscription",
-      arguments: {},
-    };
-  }
-
-  return {
-    isInterface: false,
-    implements: [],
-    isUnion: false,
-    members: [],
-    fields,
-  };
 }
