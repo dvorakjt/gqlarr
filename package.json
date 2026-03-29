@@ -1,12 +1,15 @@
 {
   "name": "gqlarr",
-  "version": "0.0.3",
-  "description": "",
+  "version": "0.0.4",
+  "description": "A utility for implementing the Almighty Root Resolver pattern in GraphQL in type-safe manner.",
   "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "types": "./dist/index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npx tsc && npm run copy-templates",
-    "copy-templates": "copyfiles -u 1 \"src/*.txt\" dist"
+    "build": "npx tsc"
   },
   "repository": {
     "type": "git",
@@ -29,8 +32,8 @@
     "@graphql-codegen/plugin-helpers": "^6.2.0",
     "@graphql-tools/apollo-engine-loader": "^8.0.28",
     "@types/node": "^25.5.0",
-    "copyfiles": "^2.4.1",
-    "graphql": "^16"
+    "graphql": "^16",
+    "vitest": "^4.1.2"
   },
   "peerDependencies": {
     "graphql": ">=16"
