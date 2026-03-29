@@ -1,6 +1,6 @@
 {
   "name": "gqlarr",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A utility for implementing the Almighty Root Resolver pattern in GraphQL in type-safe manner.",
   "main": "dist/index.js",
   "files": [

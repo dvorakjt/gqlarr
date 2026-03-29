@@ -350,7 +350,10 @@ function createGetFieldFunction(
   const fieldNameParameterIdentifier = ts.factory.createIdentifier("fieldName");
 
   const returnType = ts.factory.createTypeReferenceNode("Extract", [
-    ts.factory.createTypeReferenceNode(generatedFieldsTypeIdentifier),
+    ts.factory.createIndexedAccessTypeNode(
+      ts.factory.createTypeReferenceNode(generatedFieldsTypeIdentifier),
+      ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword),
+    ),
     ts.factory.createTypeLiteralNode([
       ts.factory.createPropertySignature(
         undefined,
