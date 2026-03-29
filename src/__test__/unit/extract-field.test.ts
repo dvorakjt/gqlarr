@@ -5,17 +5,12 @@ import {
   GraphQLObjectType,
   Kind,
   type FieldNode,
-  type ArgumentNode,
   type GraphQLResolveInfo,
   GraphQLFloat,
   GraphQLInputObjectType,
   GraphQLEnumType,
   GraphQLID,
   OperationTypeNode,
-  GraphQLInterfaceType,
-  GraphQLString,
-  GraphQLList,
-  GraphQLBoolean,
 } from "graphql";
 
 describe("extractField", () => {
