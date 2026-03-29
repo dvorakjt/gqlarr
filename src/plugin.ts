@@ -9,7 +9,9 @@ import { createInputTypeToTSTypeMapper } from "./create-input-type-to-ts-type-ma
 import { createQueryTreeNodeTypeInfoMap } from "./create-query-tree-node-type-info-map";
 import { createTypeDefinitionFileContents } from "./create-type-definition-file-contents";
 
-export const plugin: PluginFunction<input<typeof configSchema>> = (
+export type GQLARRConfig = input<typeof configSchema>;
+
+export const plugin: PluginFunction<GQLARRConfig> = (
   schema,
   _documents,
   config,

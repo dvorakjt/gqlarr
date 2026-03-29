@@ -46,12 +46,12 @@ function createImportStatements(imports: Record<string, string[]>) {
     const importDeclaration = ts.factory.createImportDeclaration(
       undefined,
       ts.factory.createImportClause(
-        false,
+        true,
         undefined,
         ts.factory.createNamedImports(
           imports[source].map((identifier) => {
             return ts.factory.createImportSpecifier(
-              true,
+              false,
               undefined,
               ts.factory.createIdentifier(identifier),
             );

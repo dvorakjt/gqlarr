@@ -1,3 +1,4 @@
+import assert from "assert";
 import {
   GraphQLInterfaceType,
   GraphQLObjectType,
@@ -84,16 +85,17 @@ function getParentType(typeName: string, info: GraphQLResolveInfo) {
     return subscriptionType;
   }
 
-  const maybeParentType = info.schema.getType(typeName);
+  const parentType = info.schema.getType(typeName);
 
-  if (
-    maybeParentType instanceof GraphQLObjectType ||
-    maybeParentType instanceof GraphQLInterfaceType
-  ) {
-    return maybeParentType;
-  }
+  /* 
+    The parent type should always be an object or interface. 
+  */
+  assert(
+    parentType instanceof GraphQLObjectType ||
+      parentType instanceof GraphQLInterfaceType,
+  );
 
-  throw new Error("Could not resolve parent type of child node.");
+  return parentType;
 }
 
 function getFieldType(
@@ -104,9 +106,8 @@ function getFieldType(
   const parentType = getParentType(parentTypeName, info);
   const field = parentType.getFields()[node.name.value];
 
-  if (!field) {
-    throw new Error("Failed to find field type.");
-  }
+  // The field should always exist.
+  assert(!!field);
 
   return getNamedType(field.type).name;
 }
