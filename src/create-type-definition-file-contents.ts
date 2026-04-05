@@ -541,17 +541,16 @@ function createResolverTypeDefinitions(resolverInfoMap: ResolverInfoMap) {
     resolversObjectMembers.push(operationSignature);
   }
 
-  const resolversInterfaceDeclaration = ts.factory.createInterfaceDeclaration(
+  const resolversTypeDeclaration = ts.factory.createTypeAliasDeclaration(
     [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
     ts.factory.createIdentifier("Resolvers"),
     undefined,
-    undefined,
-    resolversObjectMembers,
+    ts.factory.createTypeLiteralNode(resolversObjectMembers),
   );
 
   return [
     ...resolverDefinitions.map((r) => toString(r)),
-    toString(resolversInterfaceDeclaration),
+    toString(resolversTypeDeclaration),
   ];
 }
 
