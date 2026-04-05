@@ -1,21 +1,30 @@
 import assert from "assert";
+
 import {
+  type FieldNode,
+  type GraphQLResolveInfo,
+  type SelectionNode,
   GraphQLInterfaceType,
   GraphQLObjectType,
   Kind,
   getNamedType,
   valueFromASTUntyped,
-  type FieldNode,
-  type GraphQLResolveInfo,
-  type SelectionNode,
 } from "graphql";
 
-interface Field {
-  name: string;
-  on: string;
-  alias: string;
-  arguments: Record<string, unknown>;
-  fields: Field[];
+import type { Field } from "./types";
+
+export function isImportObject(
+  value:
+    | string[]
+    | {
+        imports: (string | { name: string; typeOnly: boolean })[];
+        typeOnly: boolean;
+      },
+): value is {
+  imports: (string | { name: string; typeOnly: boolean })[];
+  typeOnly: boolean;
+} {
+  return !Array.isArray(value);
 }
 
 export function isNamedFieldNode(

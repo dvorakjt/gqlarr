@@ -5,6 +5,7 @@ import {
   type InputObjectTypeDefinitionNode,
   InputValueDefinitionNode,
   GraphQLInputObjectType,
+  GraphQLEnumType,
 } from "graphql";
 
 export type InputTypeInfoMap = Record<string, InputObjectInfo | EnumInfo>;
@@ -122,7 +123,7 @@ function getInputObjectFieldInfo(
   const tsType =
     graphqlTypeName in typeMappings
       ? typeMappings[graphqlTypeName]
-      : isInputObjectType(graphqlTypeName, typeMap)
+      : isInputObjectOrEnumType(graphqlTypeName, typeMap)
         ? graphqlTypeName
         : "any";
 
@@ -135,9 +136,12 @@ function getInputObjectFieldInfo(
   };
 }
 
-function isInputObjectType(
+function isInputObjectOrEnumType(
   typeName: string,
   typeMap: Record<string, GraphQLNamedType>,
 ) {
-  return typeMap[typeName] instanceof GraphQLInputObjectType;
+  return (
+    typeMap[typeName] instanceof GraphQLInputObjectType ||
+    typeMap[typeName] instanceof GraphQLEnumType
+  );
 }

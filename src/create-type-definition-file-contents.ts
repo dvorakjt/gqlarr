@@ -1,17 +1,23 @@
+import type { GraphQLSchema } from "graphql";
+import type { InputTypeInfoMap } from "./create-input-type-info-map";
+import type { QueryTreeNodeTypeInfoMap } from "./create-query-tree-node-type-info-map";
+import type { ResolverInfoMap } from "./create-resolver-info-map";
+
 import ts, {
   EnumDeclaration,
   ImportDeclaration,
   InterfaceDeclaration,
   NodeFlags,
   PropertySignature,
+  Statement,
   SyntaxKind,
   TypeAliasDeclaration,
   TypeNode,
 } from "typescript";
 import synchronizedPrettier from "@prettier/sync";
-import type { GraphQLSchema } from "graphql";
-import type { InputTypeInfoMap } from "./create-input-type-info-map";
-import type { QueryTreeNodeTypeInfoMap } from "./create-query-tree-node-type-info-map";
+import { z } from "zod";
+import { configSchema } from "./config-schema";
+import { isImportObject } from "./helpers";
 
 const graphqlResolveInfoIdentifier =
   ts.factory.createIdentifier("GraphQLResolveInfo");
@@ -23,37 +29,50 @@ const extractFieldIdentifier = ts.factory.createIdentifier("extractField");
 
 export function createTypeDefinitionFileContents(
   schema: GraphQLSchema,
-  imports: Record<string, string[]>,
+  imports: z.infer<typeof configSchema>["imports"],
   inputTypeInfoMap: InputTypeInfoMap,
   queryTreeNodeTypeInfoMap: QueryTreeNodeTypeInfoMap,
+  resolverInfoMap: ResolverInfoMap,
 ) {
   const statements: string[] = [
-    createHeader(),
     createImportStatements(imports),
-    createFlattenType(),
     ...createInputTypeDefinitions(inputTypeInfoMap),
     ...createQueryTreeTypeDefinitions(queryTreeNodeTypeInfoMap),
+    ...createResolverTypeDefinitions(resolverInfoMap),
     createGqlarrObject(schema),
   ].filter((statement) => !!statement);
 
   return formatOutput(statements.join("\n"));
 }
 
-function createImportStatements(imports: Record<string, string[]>) {
+function createImportStatements(
+  imports: z.infer<typeof configSchema>["imports"],
+) {
   const importDeclarations: ImportDeclaration[] = [];
 
   for (const source in imports) {
     const importDeclaration = ts.factory.createImportDeclaration(
       undefined,
       ts.factory.createImportClause(
-        true,
+        Array.isArray(imports[source]) || imports[source].typeOnly,
         undefined,
         ts.factory.createNamedImports(
-          imports[source].map((identifier) => {
+          (isImportObject(imports[source])
+            ? imports[source].imports
+            : imports[source]
+          ).map((importDefinition) => {
             return ts.factory.createImportSpecifier(
-              false,
+              !Array.isArray(imports[source]) &&
+                !imports[source].typeOnly &&
+                (typeof importDefinition === "string" ||
+                  (typeof importDefinition === "object" &&
+                    importDefinition.typeOnly)),
               undefined,
-              ts.factory.createIdentifier(identifier),
+              ts.factory.createIdentifier(
+                typeof importDefinition === "object"
+                  ? importDefinition.name
+                  : importDefinition,
+              ),
             );
           }),
         ),
@@ -65,35 +84,6 @@ function createImportStatements(imports: Record<string, string[]>) {
   }
 
   return toString(importDeclarations);
-}
-
-function createFlattenType() {
-  const declaration = ts.factory.createTypeAliasDeclaration(
-    [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
-    "Flatten",
-    [
-      ts.factory.createTypeParameterDeclaration(
-        undefined,
-        ts.factory.createIdentifier("T"),
-        ts.factory.createArrayTypeNode(
-          ts.factory.createArrayTypeNode(
-            ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
-          ),
-        ),
-      ),
-    ],
-    ts.factory.createArrayTypeNode(
-      ts.factory.createIndexedAccessTypeNode(
-        ts.factory.createIndexedAccessTypeNode(
-          ts.factory.createTypeReferenceNode(ts.factory.createIdentifier("T")),
-          ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword),
-        ),
-        ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword),
-      ),
-    ),
-  );
-
-  return toString([declaration]);
 }
 
 function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
@@ -195,7 +185,7 @@ function createInputTypeDefinitions(inputTypeInfoMap: InputTypeInfoMap) {
     }
   }
 
-  return typeDefinitions.map((typeDef) => toString([typeDef]));
+  return typeDefinitions.map((typeDef) => toString(typeDef));
 }
 
 function createQueryTreeTypeDefinitions(
@@ -288,7 +278,281 @@ function createQueryTreeTypeDefinitions(
     typeDeclarations.push(typeDeclaration);
   }
 
-  return typeDeclarations.map((typeDec) => toString([typeDec]));
+  return typeDeclarations.map((typeDec) => toString(typeDec));
+}
+
+function createResolverTypeDefinitions(resolverInfoMap: ResolverInfoMap) {
+  const resolverDefinitions: Statement[] = [];
+  const resolversObjectMembers: PropertySignature[] = [];
+
+  for (const operationName in resolverInfoMap) {
+    const operation = resolverInfoMap[operationName];
+    const operationMembers: PropertySignature[] = [];
+
+    for (const fieldName in operation.fields) {
+      const field = operation.fields[fieldName];
+      let returnType: TypeNode = ts.factory.createTypeReferenceNode(
+        field.tsType,
+      );
+
+      if (field.isArray) {
+        if (field.areElementsNullable) {
+          returnType = ts.factory.createUnionTypeNode([
+            returnType,
+            ts.factory.createLiteralTypeNode(ts.factory.createNull()),
+          ]);
+        }
+
+        returnType = ts.factory.createArrayTypeNode(returnType);
+      }
+
+      if (field.isNullable) {
+        returnType = ts.factory.createUnionTypeNode([
+          returnType,
+          ts.factory.createLiteralTypeNode(ts.factory.createNull()),
+        ]);
+      }
+
+      const resolverIdentifier = ts.factory.createIdentifier(
+        operationName +
+          capitalize(fieldName) +
+          (operation.isSubscription ? "SubscriptionHandler" : "Resolver"),
+      );
+
+      const contextTypeParameterIdentifier =
+        ts.factory.createIdentifier("TContext");
+
+      if (operation.isSubscription) {
+        const payloadTypeParameterIdentifier =
+          ts.factory.createIdentifier("TPayload");
+
+        resolverDefinitions.push(
+          ts.factory.createInterfaceDeclaration(
+            [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+            resolverIdentifier,
+            [
+              ts.factory.createTypeParameterDeclaration(
+                undefined,
+                contextTypeParameterIdentifier,
+                undefined,
+                ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+              ),
+              ts.factory.createTypeParameterDeclaration(
+                undefined,
+                payloadTypeParameterIdentifier,
+                undefined,
+                ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+              ),
+            ],
+            undefined,
+            [
+              ts.factory.createPropertySignature(
+                undefined,
+                "subscribe",
+                undefined,
+                ts.factory.createFunctionTypeNode(
+                  undefined,
+                  [
+                    ts.factory.createParameterDeclaration(
+                      undefined,
+                      undefined,
+                      ts.factory.createIdentifier("_parent"),
+                      undefined,
+                      ts.factory.createKeywordTypeNode(
+                        ts.SyntaxKind.UnknownKeyword,
+                      ),
+                    ),
+                    ts.factory.createParameterDeclaration(
+                      undefined,
+                      undefined,
+                      ts.factory.createIdentifier("_args"),
+                      undefined,
+                      ts.factory.createTypeReferenceNode("Record", [
+                        ts.factory.createKeywordTypeNode(
+                          ts.SyntaxKind.StringKeyword,
+                        ),
+                        ts.factory.createKeywordTypeNode(
+                          ts.SyntaxKind.UnknownKeyword,
+                        ),
+                      ]),
+                    ),
+                    ts.factory.createParameterDeclaration(
+                      undefined,
+                      undefined,
+                      ts.factory.createIdentifier("context"),
+                      undefined,
+                      ts.factory.createTypeReferenceNode(
+                        contextTypeParameterIdentifier,
+                      ),
+                    ),
+                    ts.factory.createParameterDeclaration(
+                      undefined,
+                      undefined,
+                      ts.factory.createIdentifier("info"),
+                      undefined,
+                      ts.factory.createTypeReferenceNode("GraphQLResolveInfo"),
+                    ),
+                  ],
+                  ts.factory.createTypeReferenceNode("AsyncIterable", [
+                    ts.factory.createTypeReferenceNode(
+                      payloadTypeParameterIdentifier,
+                    ),
+                  ]),
+                ),
+              ),
+              ts.factory.createPropertySignature(
+                undefined,
+                "resolve",
+                undefined,
+                ts.factory.createFunctionTypeNode(
+                  undefined,
+                  [
+                    ts.factory.createParameterDeclaration(
+                      undefined,
+                      undefined,
+                      ts.factory.createIdentifier("payload"),
+                      undefined,
+                      ts.factory.createTypeReferenceNode(
+                        payloadTypeParameterIdentifier,
+                      ),
+                    ),
+                    ts.factory.createParameterDeclaration(
+                      undefined,
+                      undefined,
+                      ts.factory.createIdentifier("_args"),
+                      undefined,
+                      ts.factory.createTypeReferenceNode("Record", [
+                        ts.factory.createKeywordTypeNode(
+                          ts.SyntaxKind.StringKeyword,
+                        ),
+                        ts.factory.createKeywordTypeNode(
+                          ts.SyntaxKind.UnknownKeyword,
+                        ),
+                      ]),
+                    ),
+                    ts.factory.createParameterDeclaration(
+                      undefined,
+                      undefined,
+                      ts.factory.createIdentifier("context"),
+                      undefined,
+                      ts.factory.createTypeReferenceNode(
+                        contextTypeParameterIdentifier,
+                      ),
+                    ),
+                    ts.factory.createParameterDeclaration(
+                      undefined,
+                      undefined,
+                      ts.factory.createIdentifier("info"),
+                      undefined,
+                      ts.factory.createTypeReferenceNode("GraphQLResolveInfo"),
+                    ),
+                  ],
+                  ts.factory.createUnionTypeNode([
+                    returnType,
+                    ts.factory.createTypeReferenceNode("Promise", [returnType]),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        resolverDefinitions.push(
+          ts.factory.createTypeAliasDeclaration(
+            [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+            resolverIdentifier,
+            [
+              ts.factory.createTypeParameterDeclaration(
+                undefined,
+                contextTypeParameterIdentifier,
+                undefined,
+                ts.factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+              ),
+            ],
+            ts.factory.createFunctionTypeNode(
+              undefined,
+              [
+                ts.factory.createParameterDeclaration(
+                  undefined,
+                  undefined,
+                  ts.factory.createIdentifier("_parent"),
+                  undefined,
+                  ts.factory.createKeywordTypeNode(
+                    ts.SyntaxKind.UnknownKeyword,
+                  ),
+                ),
+                ts.factory.createParameterDeclaration(
+                  undefined,
+                  undefined,
+                  ts.factory.createIdentifier("_args"),
+                  undefined,
+                  ts.factory.createTypeReferenceNode("Record", [
+                    ts.factory.createKeywordTypeNode(
+                      ts.SyntaxKind.StringKeyword,
+                    ),
+                    ts.factory.createKeywordTypeNode(
+                      ts.SyntaxKind.UnknownKeyword,
+                    ),
+                  ]),
+                ),
+                ts.factory.createParameterDeclaration(
+                  undefined,
+                  undefined,
+                  ts.factory.createIdentifier("context"),
+                  undefined,
+                  ts.factory.createTypeReferenceNode(
+                    contextTypeParameterIdentifier,
+                  ),
+                ),
+                ts.factory.createParameterDeclaration(
+                  undefined,
+                  undefined,
+                  ts.factory.createIdentifier("info"),
+                  undefined,
+                  ts.factory.createTypeReferenceNode("GraphQLResolveInfo"),
+                ),
+              ],
+              ts.factory.createUnionTypeNode([
+                returnType,
+                ts.factory.createTypeReferenceNode("Promise", [returnType]),
+              ]),
+            ),
+          ),
+        );
+      }
+
+      const fieldSignature = ts.factory.createPropertySignature(
+        undefined,
+        ts.factory.createIdentifier(fieldName),
+        undefined,
+        ts.factory.createTypeReferenceNode(resolverIdentifier),
+      );
+
+      operationMembers.push(fieldSignature);
+    }
+
+    const operationSignature = ts.factory.createPropertySignature(
+      undefined,
+      ts.factory.createIdentifier(operationName),
+      undefined,
+      ts.factory.createTypeLiteralNode(operationMembers),
+    );
+
+    resolversObjectMembers.push(operationSignature);
+  }
+
+  const resolversInterfaceDeclaration = ts.factory.createInterfaceDeclaration(
+    [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+    ts.factory.createIdentifier("Resolvers"),
+    undefined,
+    undefined,
+    resolversObjectMembers,
+  );
+
+  return [
+    ...resolverDefinitions.map((r) => toString(r)),
+    toString(resolversInterfaceDeclaration),
+  ];
 }
 
 function createGqlarrObject(schema: GraphQLSchema) {
@@ -327,7 +591,7 @@ function createGqlarrObject(schema: GraphQLSchema) {
     ),
   );
 
-  return toString([gqlarrExport]);
+  return toString(gqlarrExport);
 }
 
 function createGetFieldFunction(
@@ -526,47 +790,6 @@ function createGetFieldFunction(
   return declaration;
 }
 
-function createHeader() {
-  const graphqlImports = ts.factory.createImportDeclaration(
-    undefined,
-    ts.factory.createImportClause(
-      true,
-      undefined,
-      ts.factory.createNamedImports([
-        ts.factory.createImportSpecifier(
-          false,
-          undefined,
-          graphqlResolveInfoIdentifier,
-        ),
-      ]),
-    ),
-    ts.factory.createStringLiteral("graphql"),
-  );
-
-  const gqlarrImports = ts.factory.createImportDeclaration(
-    undefined,
-    ts.factory.createImportClause(
-      false,
-      undefined,
-      ts.factory.createNamedImports([
-        ts.factory.createImportSpecifier(
-          false,
-          undefined,
-          isNamedFieldNodeIdentifier,
-        ),
-        ts.factory.createImportSpecifier(
-          false,
-          undefined,
-          extractFieldIdentifier,
-        ),
-      ]),
-    ),
-    ts.factory.createStringLiteral("gqlarr"),
-  );
-
-  return toString([graphqlImports, gqlarrImports]);
-}
-
 function toTsType(typeInfo: {
   tsType: string;
   isArray: boolean;
@@ -588,11 +811,15 @@ function toTsType(typeInfo: {
   return type;
 }
 
-function toString(statements: ts.Statement[]) {
+function toString(statementOrStatements: ts.Statement | ts.Statement[]) {
   const printer = ts.createPrinter();
 
+  if (!Array.isArray(statementOrStatements)) {
+    statementOrStatements = [statementOrStatements];
+  }
+
   const sourceFile = ts.factory.createSourceFile(
-    statements,
+    statementOrStatements,
     ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
     NodeFlags.None,
   );

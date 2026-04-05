@@ -12,6 +12,7 @@ export function createInputTypeToTSTypeMapper(
     if (typeMap[inputType].astNode.kind === Kind.SCALAR_TYPE_DEFINITION)
       return "any";
 
+    // Object and enum types
     return inputType;
   };
 }
